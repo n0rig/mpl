@@ -21,9 +21,9 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-import com.griddynamics.devops.mpl.Helper
-import com.griddynamics.devops.mpl.MPLManager
-import com.griddynamics.devops.mpl.MPLException
+import com.devops_pipeline_base.mpl.Helper
+import com.devops_pipeline_base.mpl.MPLManager
+import com.devops_pipeline_base.mpl.MPLException
 
 /**
  * MPL pipeline helper to provide the default modules configuration

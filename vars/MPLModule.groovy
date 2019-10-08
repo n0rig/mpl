@@ -21,9 +21,16 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-import com.griddynamics.devops.mpl.Helper
-import com.griddynamics.devops.mpl.MPLManager
-import com.griddynamics.devops.mpl.MPLModuleException
+import com.devops_pipeline_base.mpl.Helper
+import com.devops_pipeline_base.mpl.MPLManager
+import com.devops_pipeline_base.mpl.MPLModuleException
+
+import java.nio.file.Paths
+import org.jenkinsci.plugins.workflow.cps.CpsThread
+import org.jenkinsci.plugins.workflow.libs.LibrariesAction
+
+import hudson.model.Run
+import hudson.FilePath
 
 /**
  * Finding module implementation and executing it with specified configuration
@@ -34,40 +41,59 @@ import com.griddynamics.devops.mpl.MPLModuleException
  *
  * @author Sergei Parshev <sparshev@griddynamics.com>
  * @param name  used to determine the module name, by default it's current stage name (ex. "Maven Build")
- * @param cfg   module configuration to override. Will update the common module configuration
+ * @param config   module configuration to override. Will update the common module configuration
  */
-def call(String name = env.STAGE_NAME, Map cfg = null) {
-  if( cfg == null )
-    cfg = MPLManager.instance.moduleConfig(name)
-  
+def call(String name = null, Map config = null) {
+
+  if( name == null )
+    throw new MPLModuleException("No module name provided!")
+
+  if( config == null )
+    config = MPLManager.instance.moduleConfig(name)
+
   // Trace of the running modules to find loops
   // Also to make ability to use lib module from overridden one
   def active_modules = MPLManager.instance.getActiveModules()
 
   // Determining the module source file and location
-  def base = (cfg.name ?: name).tokenize()
-  def module_path = "modules/${base.last()}/${base.join()}.groovy"
-  def project_path = ".jenkins/${module_path}".toString()
+  def override_folder_name = MPLManager.instance.getOverrideFolderName()
+  def module_path = null
+  def module_name = null
+  def override_path = null
+
+  if (name.contains(".groovy")) {
+    module_name = "${name.replaceAll("\\s","")}".toString()
+    module_path = "modules/${module_name}".toString()
+    override_path = "${override_folder_name}/${module_path}".toString()
+  } else {
+    throw new MPLModuleException("The full module path is required (e.g. build/make.groovy)!")
+  }
 
   // Reading module definition from workspace or from the library resources
   def module_src = null
-  if( MPLManager.instance.checkEnforcedModule(name) && env.NODE_NAME != null && fileExists(project_path) && (! active_modules.contains(project_path)) ) {
-    module_path = project_path
-    module_src = readFile(project_path)
+
+  if(env.NODE_NAME != null && fileExists(override_path) && (! active_modules.contains(override_path)) ) {
+    println "[!] Executing Module '${module_name}' from local directory '${override_path}'."
+    module_src = readFile(override_path)
+    module_path = override_path
   } else {
     // Searching for the not executed module from the loaded libraries
     module_src = Helper.getModulesList(module_path).find { it ->
       module_path = "library:${it.first()}".toString()
       ! active_modules.contains(module_path)
     }?.last()
+
+    if (module_src != null) {
+      println "[!] Executing Module '${module_name}' from '${module_path.split("/")[0]}'."
+    }
   }
 
   if( ! module_src )
-    throw new MPLModuleException("Unable to find not active module to execute: ${(active_modules).join(' --> ')} -X> ${module_path}")
+    throw new MPLModuleException("Unable to find the module '${module_name}'! Cannot execute missing module! Check case-sensitivity and if file exists.")
 
   try {
     MPLManager.instance.pushActiveModule(module_path)
-    Helper.runModule(module_src, module_path, [CFG: Helper.flatten(cfg)])
+    Helper.runModule(module_src, module_path, [CFG: Helper.flatten(config)])
   }
   catch( ex ) {
     def newex = new MPLModuleException("Found error during execution of the module '${module_path}':\n${ex}")
@@ -79,7 +105,7 @@ def call(String name = env.STAGE_NAME, Map cfg = null) {
     def errors = MPLManager.instance.getPostStepsErrors(module_path)
     if( errors ) {
       for( int e in errors )
-        println "Module '${name}' got error during execution of poststep from module '${e.module}': ${e.error}"
+        println "Module '${module_name}' got error during execution of poststep from module '${e.module}': ${e.error}"
       def newex = new MPLModuleException("Found error during execution poststeps for the module '${module_path}'")
       newex.setStackTrace(Helper.getModuleStack(newex))
       throw newex

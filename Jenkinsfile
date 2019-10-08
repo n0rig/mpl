@@ -1,3 +1,4 @@
 @Library('mpl@release') _
 
-MPLPipeline {}
+// TODO: finish work to dynamically import FULL pipelines
+MPLPipeline("generic.groovy")

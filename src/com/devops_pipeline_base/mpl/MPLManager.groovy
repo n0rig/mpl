@@ -21,7 +21,7 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-package com.griddynamics.devops.mpl
+package com.devops_pipeline_base.mpl
 
 /**
  * Object to help with MPL pipelines configuration & poststeps
@@ -31,7 +31,10 @@ package com.griddynamics.devops.mpl
 @Singleton
 class MPLManager implements Serializable {
   /** List of paths which is used to find modules in libraries */
-  private List modulesLoadPaths = ['com/griddynamics/devops/mpl']
+  private List modulesLoadPaths = ['com/devops_pipeline_base/mpl']
+
+  /** List of paths which is used to find pipelines in libraries */
+  private List pipelinesLoadPaths = ['com/devops_pipeline_base/mpl']
 
   /** Pipeline configuration */
   private Map config = [:]
@@ -45,14 +48,14 @@ class MPLManager implements Serializable {
   /** Poststeps errors store */
   private Map postStepsErrors = [:]
 
-  /** Flag to enable enforcement of the modules on project side */
-  private Boolean enforced = false
-
-  /** List of modules available on project side while enforcement */
-  private List enforcedModules = []
-
   /** List of currently executed modules */
   private List activeModules = []
+
+  /** List of currently executed Pipelines */
+  private List activePipelines = []
+
+  /** Name of the local folder for module overrides */
+  private String overrideFolderName = ".overrides"
 
   /**
    * Initialization for the MPL manager
@@ -73,6 +76,26 @@ class MPLManager implements Serializable {
   public String getAgentLabel() {
     config.agent_label
   }
+
+  /**
+   * Get module override folder
+   *
+   * @return String with module override folder name
+   */
+  public String getOverrideFolderName() {
+    overrideFolderName
+  }
+
+
+  /**
+   * set module override folder
+   *
+   * @return String with module override folder name
+   */
+  public String setOverrideFolderName(String name) {
+    overrideFolderName = name
+  }
+
 
   /**
    * Get a module configuration
@@ -108,7 +131,9 @@ class MPLManager implements Serializable {
   public void postStep(String name, Closure body) {
     // TODO: Parallel execution - could be dangerous
     if( ! postSteps[name] ) postSteps[name] = []
-    postSteps[name] << [module: getActiveModules()?.last(), body: body]
+    if (!getActiveModules().isEmpty()) {
+      postSteps[name] << [module: getActiveModules()?.last(), body: body]
+    }
   }
 
   /**
@@ -120,7 +145,9 @@ class MPLManager implements Serializable {
   public void modulePostStep(String name, Closure body) {
     // TODO: Parallel execution - could be dangerous
     if( ! modulePostSteps[name] ) modulePostSteps[name] = []
-    modulePostSteps[name] << [module: getActiveModules()?.last(), body: body]
+    if (!getActiveModules().isEmpty()) {
+      modulePostSteps[name] << [module: getActiveModules()?.last(), body: body]
+    }
   }
 
   /**
@@ -170,7 +197,7 @@ class MPLManager implements Serializable {
     if( ! postStepsErrors[name] ) postStepsErrors[name] = []
     postStepsErrors[name] << [module: module, error: exception]
   }
-  
+
   /**
    * Get the list of errors become while poststeps execution
    *
@@ -188,6 +215,7 @@ class MPLManager implements Serializable {
    * @return  List of paths
    */
   public List getModulesLoadPaths() {
+    if (modulesLoadPaths.isEmpty()) throw new MPLException('No modules enabled or you are trying to execute a module twice.')
     modulesLoadPaths.reverse()
   }
 
@@ -201,30 +229,28 @@ class MPLManager implements Serializable {
   }
 
   /**
-   * Enforce modules override on project side - could be set just once while execution
+   * Get the pipelines load paths in reverse order to make sure that defined last will be listed first
    *
-   * @param modules  List of modules available to be overriden on the project level
+   * @return  List of paths
    */
-  public void enforce(List modules) {
-    if( enforced == true ) return // Execute function only once while initialization
-    enforced = true
-    enforcedModules = modules
+  public List getPipelinesLoadPaths() {
+    if (pipelinesLoadPaths.isEmpty()) throw new MPLException('No pipelines enabled or you are trying to execute a pipeline twice.')
+    pipelinesLoadPaths.reverse()
   }
 
   /**
-   * Check module in the enforced list
+   * Add path to the pipelines load paths list
    *
-   * @param module  Module name
-   * @return  Boolean module in the list, will always return true if not enforced
+   * @param path  string with resource path to the parent folder of pipelines
    */
-  public Boolean checkEnforcedModule(String module) {
-    ! enforced ?: enforcedModules.contains(module)
+  public void addPipelinesLoadPath(String path) {
+    pipelinesLoadPaths += path
   }
 
   /**
-   * Get list of currently executing modules
+   * Get list of currently executing Modules
    *
-   * @return  List of modules paths
+   * @return  List of Modules paths
    */
   public getActiveModules() {
     activeModules
@@ -236,13 +262,41 @@ class MPLManager implements Serializable {
    * @param path  Path to the module (including library if it's the library)
    */
   public pushActiveModule(String path) {
-    activeModules += path
+    activePipelines += path
   }
 
   /**
    * Removing the latest active module from the list
    */
   public popActiveModule() {
-    activeModules.pop()
+    activePipelines.pop()
   }
+
+
+  /**
+   * Get list of currently executing Pipelines
+   *
+   * @return  List of Pipelines paths
+   */
+  public getActivePipelines() {
+    activePipelines
+  }
+
+  /**
+   * Add active pipeline to the stack-list
+   *
+   * @param path  Path to the pipeline (including library if it's the library)
+   */
+  public pushActivePipeline(String path) {
+    activePipelines += path
+  }
+
+  /**
+   * Removing the latest active pipeline from the list
+   */
+  public popActivePipeline() {
+    activePipelines.pop()
+  }
+
+
 }

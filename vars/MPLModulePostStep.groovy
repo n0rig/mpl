@@ -21,7 +21,8 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-import com.griddynamics.devops.mpl.MPLManager
+import com.devops_pipeline_base.mpl.MPLManager
+import com.devops_pipeline_base.mpl.MPLModuleException
 
 /**
  * Add poststeps block to the list
@@ -30,6 +31,9 @@ import com.griddynamics.devops.mpl.MPLManager
  * @param body  Definition of steps to execute
  * @see MPLManager#modulePostStep(String name, Closure body)
  */
-def call(Closure body) {
-  MPLManager.instance.modulePostStep(MPLManager.instance.getActiveModules().last(), body)
+def call(String name = null, Closure body) {
+  if( name == null )
+    throw new MPLModuleException("No module name provided!")
+
+  MPLManager.instance.modulePostStep(name, body)
 }

@@ -21,7 +21,7 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-package com.griddynamics.devops.mpl
+package com.devops_pipeline_base.mpl
 
 import java.nio.file.Paths
 
@@ -58,12 +58,12 @@ abstract class Helper {
    * Getting a list of modules for each loaded library with modules data
    * Idea from LibraryAdder.findResource() function
    *
-   * @param path  Module resource path
+   * @param modules_path  Module resource path
    * @return  list of maps with pairs "module path: module source code"
    *
    * @see org.jenkinsci.plugins.workflow.libs.LibraryAdder#findResources(CpsFlowExecution execution, String name)
    */
-  static List getModulesList(String path) {
+  static List getModulesList(String modules_path) {
     def executable = CpsThread.current()?.getExecution()?.getOwner()?.getExecutable()
     if( ! (executable instanceof Run) )
       throw new MPLException('Current executable is not a jenkins Run')
@@ -76,12 +76,70 @@ abstract class Helper {
     def libs = new FilePath(executable.getRootDir()).child('libs')
     action.getLibraries().each { lib ->
       MPLManager.instance.getModulesLoadPaths().each { modulesPath ->
-        def libPath = Paths.get(lib.name, 'resources', modulesPath, path).toString()
+        def libPath = Paths.get(lib.name, 'resources', modulesPath, modules_path).toString()
         def f = libs.child(libPath)
         if( f.exists() ) modules += [[libPath, f.readToString()]]
       }
     }
     return modules
+  }
+
+
+  /**
+   * Getting a list of loaded libraries.
+   *
+   * @return  list of library names currently loaded
+   *
+   * @see org.jenkinsci.plugins.workflow.libs.LibraryAdder#findResources(CpsFlowExecution execution, String name)
+   */
+  static Map getLibraryNames() {
+    def executable = CpsThread.current()?.getExecution()?.getOwner()?.getExecutable()
+    if( ! (executable instanceof Run) )
+      throw new MPLException('Current executable is not a jenkins Run')
+
+    def action = executable.getAction(LibrariesAction.class)
+    if( action == null )
+      throw new MPLException('Unable to find LibrariesAction in the current Run')
+
+    def libraries = []
+    def libs = new FilePath(executable.getRootDir()).child('libs')
+    action.getLibraries().each { lib ->
+      MPLManager.instance.getPipelinesLoadPaths().each { pipelinesPath ->
+          def libPath = Paths.get(lib.name, 'resources', pipelinesPath).toString()
+          libraries += libPath
+      }
+    }
+    return libraries
+  }
+
+  /**
+   * Getting a list of pipelines for each loaded library with pipelines data
+   * Idea from LibraryAdder.findResource() function
+   *
+   * @param path  Pipeline resource path
+   * @return  list of maps with pairs "pipeline path: pipeline source code"
+   *
+   * @see org.jenkinsci.plugins.workflow.libs.LibraryAdder#findResources(CpsFlowExecution execution, String name)
+   */
+  static List getPipelinesList(String path) {
+    def executable = CpsThread.current()?.getExecution()?.getOwner()?.getExecutable()
+    if( ! (executable instanceof Run) )
+      throw new MPLException('Current executable is not a jenkins Run')
+
+    def action = executable.getAction(LibrariesAction.class)
+    if( action == null )
+      throw new MPLException('Unable to find LibrariesAction in the current Run')
+
+    def pipelines = []
+    def libs = new FilePath(executable.getRootDir()).child('libs')
+    action.getLibraries().each { lib ->
+      MPLManager.instance.getPipelinesLoadPaths().each { pipelinesPath ->
+        def libPath = Paths.get(lib.name, 'resources', pipelinesPath, path).toString()
+        def f = libs.child(libPath)
+        if( f.exists() ) pipelines += [[libPath, f.readToString()]]
+      }
+    }
+    return pipelines
   }
 
   /**
@@ -125,6 +183,10 @@ abstract class Helper {
     getShell(vars).evaluate(src, path)
   }
 
+  static void runPipeline(String src, String path, Map vars = [:]) {
+    getShell(vars).evaluate(src, path)
+  }
+
   /**
    * Cutting a stacktrace to just first execution of the module and one before
    *
@@ -139,6 +201,17 @@ abstract class Helper {
       else
         stack.remove(i)
     }
+    stack as StackTraceElement[]
+  }
+
+  /**
+   * Cutting a stacktrace to just first execution of the pipeline and one before
+   *
+   * @param exception  container of the stacktrace
+   * @return  List with stack trace elements
+   */
+  static StackTraceElement[] getPipelineStack(Throwable exception) {
+    List stack = exception.getStackTrace()
     stack as StackTraceElement[]
   }
 }

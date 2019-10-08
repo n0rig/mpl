@@ -21,18 +21,12 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-import com.devops_pipeline_base.mpl.MPLManager
+package com.devops_pipeline_base.mpl
 
 /**
- * Run the poststep list in reverse direction
+ * Exception to handle module execution errors
  *
  * @author Sergei Parshev <sparshev@griddynamics.com>
- * @param name  List name
- * @see MPLManager#postStepsRun(String name)
  */
-def call(String name) {
-  MPLManager.instance.postStepsRun(name)
-  def errors = MPLManager.instance.getPostStepsErrors(name)
-  for( int e in errors )
-    println "PostStep '${name}' error: ${e.module}: ${e.error}"
-}
+@groovy.transform.InheritConstructors
+class MPLException extends RuntimeException {}

@@ -21,12 +21,15 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-package com.griddynamics.devops.mpl
+import com.devops_pipeline_base.mpl.MPLManager
 
 /**
- * Exception to handle module execution errors
+ * Easy way to set additional path with library modules
  *
  * @author Sergei Parshev <sparshev@griddynamics.com>
+ * @param path  path to the library modules
  */
-@groovy.transform.InheritConstructors
-class MPLException extends RuntimeException {}
+def call(String path) {
+  MPLManager.instance.addModulesLoadPath(path)
+  MPLManager.instance.addPipelinesLoadPath(path)
+}

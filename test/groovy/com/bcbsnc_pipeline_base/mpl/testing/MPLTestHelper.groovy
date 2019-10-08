@@ -21,12 +21,23 @@
 // @Description: Shared Jenkins Modular Pipeline Library
 //
 
-package com.griddynamics.devops.mpl
+package com.devops_pipeline_base.mpl.testing
 
-/**
- * Exception to handle module execution errors
- *
- * @author Sergei Parshev <sparshev@griddynamics.com>
- */
+import com.lesfurets.jenkins.unit.PipelineTestHelper
+import com.lesfurets.jenkins.unit.MethodSignature
+
 @groovy.transform.InheritConstructors
-class MPLModuleException extends MPLException {}
+class MPLTestHelper extends PipelineTestHelper {
+  public getLibraryConfig() {
+    gse.getConfig()
+  }
+  public getLibraryClassLoader() {
+    gse.groovyClassLoader
+  }
+
+  void registerAllowedMethod(MethodSignature methodSignature, Closure closure) {
+    if( isMethodAllowed(methodSignature.name, methodSignature.args) )
+      return // Skipping methods already existing in the list
+    allowedMethodCallbacks.put(methodSignature, closure)
+  }
+}
